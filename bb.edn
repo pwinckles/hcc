@@ -1,0 +1,55 @@
+{:tasks
+ {:requires ([babashka.fs :as fs]),
+
+  test {:doc  "Run tests",
+        :task (apply clojure "-M:test" *command-line-args*)},
+
+  nrepl {:doc  "Start REPL",
+         :task (if (fs/windows?)
+                 (clojure "-M:nrepl")
+                 (shell "rlwrap bb clojure -M:nrepl"))},
+
+  uber {:doc  "Build uberjar",
+        :task (clojure "-T:build uber")},
+
+  jar {:doc  "Build jar",
+       :task (clojure "-T:build jar")},
+
+  clean {:doc  "Clean",
+         :task (clojure "-T:build clean")},
+
+  zprint {:doc        "Execute zprint",
+          :extra-deps {zprint/zprint {:mvn/version "1.2.9"}},
+          :requires   ([zprint.main]),
+          :task       (apply zprint.main/-main *command-line-args*)},
+
+  format
+  {:doc "Format all clj and edn files",
+   :requires ([babashka.process :refer [process]]),
+   :task
+   (->
+     (process
+      "find . -path ./target -prune -false -o -path ./.clj-kondo -prune -false -o -name '*.clj' -o -name '*.edn'")
+     (process {:err :string} "xargs bb zprint -lfsw")
+     deref
+     :err
+     println)},
+
+  lint
+  {:doc  "Run clj-kondo",
+   :task (shell "clj-kondo --lint src:test")},
+
+  lint-init
+  {:doc      "Initializes the clj-kondo cache",
+   :requires ([clojure.string :as str]),
+   :task     (do
+               (fs/create-dirs ".clj-kondo")
+               (as-> (shell {:out :string} "clojure -Spath") $
+                (:out $)
+                (str/trim $)
+                (shell "clj-kondo"
+                  "--lint"
+                  $
+                  "--dependencies"
+                  "--parallel"
+                  "--copy-configs")))}}}
