@@ -45,11 +45,11 @@
    :task     (do
                (fs/create-dirs ".clj-kondo")
                (as-> (shell {:out :string} "clojure -Spath") $
-                (:out $)
-                (str/trim $)
-                (shell "clj-kondo"
-                  "--lint"
-                  $
-                  "--dependencies"
-                  "--parallel"
-                  "--copy-configs")))}}}
+                 (:out $)
+                 (str/trim $)
+                 (shell "clj-kondo"
+                        "--lint"
+                        $
+                        "--dependencies"
+                        "--parallel"
+                        "--copy-configs")))}}}

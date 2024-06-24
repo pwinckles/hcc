@@ -1,12 +1,13 @@
-(ns com.pwinckles.combo-calculator
+(ns com.pwinckles.hcc
   (:require [clojure.math.combinatorics :as combo])
   (:gen-class)
   (:import (java.text DecimalFormat)))
 
 ;; TODO move
-(def deck-composition {:suits  4
-                       :ranks  [2 3 4 5 6 7 8 9 10]
-                       :copies 1})
+(def deck-composition
+  {:suits  4,
+   :ranks  [2 3 4 5 6 7 8 9 10],
+   :copies 1})
 
 (defrecord Card [suit rank])
 
@@ -20,7 +21,8 @@
 
 (defn create-deck
   [{:keys [suits ranks copies]}]
-  (into [] (mapcat flatten)
+  (into []
+        (mapcat flatten)
         (for [suit (range suits)
               rank ranks]
           (take copies (repeat (->Card suit rank))))))
@@ -60,7 +62,11 @@
             update-result (fn [suit]
                             (update result suit (fnil #(conj % card) [])))]
         (if (= rank previous-rank)
-          (recur next-card next-cards previous-rank (inc n) (update-result (inc n)))
+          (recur next-card
+                 next-cards
+                 previous-rank
+                 (inc n)
+                 (update-result (inc n)))
           (recur next-card next-cards rank 0 (update-result 0)))))))
 
 (defn identify-sequences
@@ -76,13 +82,15 @@
         (recur (first cards) (rest cards) (conj current card) result)
         (let [result (if (< (count current) 2)
                        result
-                       (conj result [(card-rank (first current)) (count current)]))]
+                       (conj result
+                             [(card-rank (first current)) (count current)]))]
           (recur (first cards) (rest cards) [card] result))))))
 
-(def sequence-permutations (memoize (fn [[start length]]
-                                      (for [i (range 2 (+ length 1))
-                                            s (range start (- (+ start length 1) i))]
-                                        [s i]))))
+(def sequence-permutations
+  (memoize (fn [[start length]]
+             (for [i (range 2 (+ length 1))
+                   s (range start (- (+ start length 1) i))]
+               [s i]))))
 
 (defn bomb?
   [cards]
@@ -119,9 +127,10 @@
 
 (defn evaluate-sequences
   [cards]
-  (let [sequences (into [] (comp (mapcat partition-by-unique)
-                                 (mapcat identify-sequences)
-                                 (mapcat sequence-permutations))
+  (let [sequences (into []
+                        (comp (mapcat partition-by-unique)
+                              (mapcat identify-sequences)
+                              (mapcat sequence-permutations))
                         (vals (sorted-and-grouped cards)))]
     (reduce (fn [acc [[start length] c]]
               (if (and (= 1 c) (< length 3))
@@ -140,23 +149,27 @@
         rainbow-count (count-bombs-rainbow odds-by-suit)]
     {:suited  (reduce (fn [acc c] (assoc acc c 1))
                       {}
-                      (range 1 (inc suited-count)))
+                      (range 1 (inc suited-count))),
      :rainbow (reduce (fn [acc c] (assoc acc c 1))
                       {}
                       (range 1 (inc rainbow-count)))}))
 
 (defn evaluate-combinations
   [cards]
-  {:sets      (evaluate-sets cards)
-   :sequences (evaluate-sequences cards)
+  {:sets      (evaluate-sets cards),
+   :sequences (evaluate-sequences cards),
    :bombs     (evaluate-bombs cards)})
 
 (defn merge-results
   [r1 r2]
-  {:sets      (merge-with + (:sets r1) (:sets r2))
-   :sequences (merge-with + (:sequences r1) (:sequences r2))
-   :bombs     {:suited (merge-with + (get-in r1 [:bombs :suited]) (get-in r2 [:bombs :suited]))
-               :rainbow (merge-with + (get-in r1 [:bombs :rainbow]) (get-in r2 [:bombs :rainbow]))}})
+  {:sets      (merge-with + (:sets r1) (:sets r2)),
+   :sequences (merge-with + (:sequences r1) (:sequences r2)),
+   :bombs     {:suited  (merge-with +
+                                    (get-in r1 [:bombs :suited])
+                                    (get-in r2 [:bombs :suited])),
+               :rainbow (merge-with +
+                                    (get-in r1 [:bombs :rainbow])
+                                    (get-in r2 [:bombs :rainbow]))}})
 
 (defn evaluate-hands
   [n deck]
@@ -171,7 +184,7 @@
   [deck-composition deals threads]
   (let [deck    (create-deck deck-composition)
         n       (long (/ deals threads))
-        futures (repeatedly threads #(future (evaluate-hands n deck)))]
+        futures (vec (repeatedly threads #(future (evaluate-hands n deck))))]
     (reduce (fn [acc result]
               (merge-results acc @result))
             {}
@@ -179,11 +192,13 @@
 
 (defn display
   [results deals threads]
-  (let [n (* (long (/ deals threads)) threads)
-        df (DecimalFormat. (str "0.0" (apply str (repeat (count (str n)) "#"))))
+  (let [n         (* (long (/ deals threads)) threads)
+        df        (DecimalFormat.
+                   (str "0.0" (apply str (repeat (count (str n)) "#"))))
         print-seq (fn [result]
                     (doseq [[s c] (into (sorted-map) result)]
-                      (println (str " " s ": " (.format df (double (/ c n)))))))]
+                      (println (str " "  s
+                                    ": " (.format df (double (/ c n)))))))]
     (println "Deals:" n)
     (println "Sets")
     (print-seq (:sets results))
@@ -202,9 +217,6 @@
   [deck-composition deals threads]
   (display (run deck-composition deals threads) deals threads))
 
-;; 10 -> 30140
-;;  1 -> 31419
-;; 20 ->
-;; TODO rename to hcc
-(defn -main [& args]
-  )
+(defn -main
+  [& args]
+)

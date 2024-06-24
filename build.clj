@@ -44,4 +44,4 @@
   (b/uber {:class-dir class-dir,
            :uber-file uber-file,
            :basis     basis,
-           :main      'com.pwinckles.combo-calculator}))
+           :main      'com.pwinckles.hcc}))
