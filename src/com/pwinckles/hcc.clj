@@ -1,13 +1,9 @@
 (ns com.pwinckles.hcc
-  (:require [clojure.math.combinatorics :as combo])
+  (:require [clojure.math.combinatorics :as combo]
+            [clojure.tools.cli :refer [parse-opts]]
+            [clojure.pprint :as pp])
   (:gen-class)
   (:import (java.text DecimalFormat)))
-
-;; TODO move
-(def deck-composition
-  {:suits  4,
-   :ranks  [2 3 4 5 6 7 8 9 10],
-   :copies 1})
 
 (defrecord Card [suit rank])
 
@@ -156,9 +152,24 @@
 
 (defn evaluate-combinations
   [cards]
-  {:sets      (evaluate-sets cards),
-   :sequences (evaluate-sequences cards),
-   :bombs     (evaluate-bombs cards)})
+  (let [results {:sets      (evaluate-sets cards),
+                 :sequences (evaluate-sequences cards),
+                 :bombs     (evaluate-bombs cards)}]
+
+    ;; useful for examining strange hands
+    (comment
+      (cond
+        (> (count (get-in results [:bombs :rainbow])) 9)
+        (do
+          (println "Rainbow:" (count (get-in results [:bombs :rainbow])))
+          (pp/pprint (sorted-and-grouped cards)))
+
+        (> (count (get-in results [:bombs :suited])) 2)
+        (do
+          (println "Suited:" (count (get-in results [:bombs :suited])))
+          (pp/pprint (sorted-and-grouped cards)))))
+
+    results))
 
 (defn merge-results
   [r1 r2]
@@ -184,22 +195,24 @@
   [deck-composition deals threads]
   (let [deck    (create-deck deck-composition)
         n       (long (/ deals threads))
-        futures (vec (repeatedly threads #(future (evaluate-hands n deck))))]
+        r       (rem deals threads)
+        futures (cond-> (vec (repeatedly threads
+                                         #(future (evaluate-hands n deck))))
+                  (> r 0) (conj (future (evaluate-hands r deck))))]
     (reduce (fn [acc result]
               (merge-results acc @result))
             {}
             futures)))
 
 (defn display
-  [results deals threads]
-  (let [n         (* (long (/ deals threads)) threads)
-        df        (DecimalFormat.
-                   (str "0.0" (apply str (repeat (count (str n)) "#"))))
+  [results deals]
+  (let [df        (DecimalFormat.
+                   (str "0.0" (.repeat "#" deals)))
         print-seq (fn [result]
                     (doseq [[s c] (into (sorted-map) result)]
                       (println (str " "  s
-                                    ": " (.format df (double (/ c n)))))))]
-    (println "Deals:" n)
+                                    ": " (.format df (double (/ c deals)))))))]
+    (println "Deals:" deals)
     (println "Sets")
     (print-seq (:sets results))
     (println "Sequences")
@@ -215,8 +228,45 @@
 
 (defn run-and-display
   [deck-composition deals threads]
-  (display (run deck-composition deals threads) deals threads))
+  (display (run deck-composition deals threads) deals))
+
+(def cli-opts
+  [["-d" "--deals DEALS" "Number of hands to deal"
+    :parse-fn #(Long/parseLong %)
+    :validate [#(< 0 %) "Must be a number greater than 0"]]
+   ["-s" "--suits SUITS" "Number of suits in the deck"
+    :default 4
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 10) "Must be a number between 0 and 10"]]
+   ["-c" "--copies COPIES" "Number of copies of each card"
+    :default 1
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 % 10) "Must be a number between 0 and 10"]]
+   ["-t" "--threads THREADS" "Number of threads to run on"
+    :default (.availableProcessors (Runtime/getRuntime))
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 %) "Must be a number greater than 0"]]
+   ["-h" "--help"]])
 
 (defn -main
   [& args]
-)
+  (let [{:keys [options errors summary]} (parse-opts args cli-opts)
+        errors (if-not (:deals options)
+                 (conj errors "Missing required option \"-d DEALS\"")
+                 errors)]
+    (cond
+      (:help options)
+      (println summary)
+
+      (seq errors)
+      (doseq [error errors]
+        (println error))
+
+      :else
+      (run-and-display {:suits  (:suits options),
+                        :copies (:copies options),
+                        :ranks  (vec (range 2 11))}
+                       (:deals options)
+                       (:threads options)))
+
+    (System/exit 0)))

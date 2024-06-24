@@ -4,6 +4,9 @@
   test {:doc  "Run tests",
         :task (apply clojure "-M:test" *command-line-args*)},
 
+  exec {:doc  "Run the app",
+        :task (apply clojure "-M:run-m" *command-line-args*)},
+
   nrepl {:doc  "Start REPL",
          :task (if (fs/windows?)
                  (clojure "-M:nrepl")

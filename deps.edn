@@ -1,11 +1,15 @@
 {:paths ["src"],
- :deps {org.clojure/clojure {:mvn/version "1.11.3"},
-        org.clojure/math.combinatorics {:mvn/version "0.3.0"}},
+ :deps {org.clojure/clojure   {:mvn/version "1.11.3"},
+        org.clojure/math.combinatorics {:mvn/version "0.3.0"},
+        org.clojure/tools.cli {:mvn/version "1.1.230"}},
 
  :aliases
  {:neil
   {:project {:name    com.pwinckles/hcc,
              :version "1.0.0-SNAPSHOT"}},
+
+  :run-m
+  {:main-opts ["-m" "com.pwinckles.hcc"]},
 
   :test ;; added by neil
   {:extra-paths ["test"],
