@@ -128,7 +128,13 @@
   cards in that suit, then return the number of suited bombs contained in
   the map."
   [odds-by-suit]
-  (count-bombs (mapcat partition-by-unique (vals odds-by-suit))))
+  (count-bombs (into []
+                     (comp (map (fn [[_k v]] (partition-by-unique v)))
+                           (mapcat (fn [sets]
+                                     (if (= (count sets) 1)
+                                       sets
+                                       (apply combo/cartesian-product sets)))))
+                     odds-by-suit)))
 
 (defn count-bombs-rainbow
   "Given a map of cards, grouped by suit, where the values are sorted odd
@@ -137,9 +143,8 @@
   [odds-by-suit]
   (if (< (count odds-by-suit) 4)
     0
-    (count-bombs (into []
-                       (mapcat #(apply combo/cartesian-product %))
-                       (combo/combinations (vals odds-by-suit) 4)))))
+    (count-bombs (mapcat #(apply combo/cartesian-product %)
+                  (combo/combinations (vals odds-by-suit) 4)))))
 
 (defn evaluate-sets
   "Given a seq of cards, return a map of the counts of sets in the seq.
@@ -228,9 +233,9 @@
   "Given n, the number of hands to evaluate, and a deck, seq of cards,
   evaluate the combinations found in n random hands dealt from the deck,
   and return a merged result set, see evaluate-combinations."
-  [n deck]
+  [n deck hand-size]
   (let [results (eduction (map evaluate-combinations)
-                          (repeatedly n #(deal deck 14)))]
+                          (repeatedly n #(deal deck hand-size)))]
     (reduce (fn [acc result]
               (merge-results acc result))
             {}
@@ -241,13 +246,14 @@
   the deck described by the deck-composition map, {:suit n, :ranks [], :copies n},
   using the specified number of threads. Return a merged map of the results,
   see evaluate-combinations."
-  [deck-composition deals threads]
+  [deck-composition hand-size deals threads]
   (let [deck    (create-deck deck-composition)
         n       (long (/ deals threads))
         r       (rem deals threads)
         futures (cond-> (vec (repeatedly threads
-                                         #(future (evaluate-hands n deck))))
-                  (> r 0) (conj (future (evaluate-hands r deck))))]
+                                         #(future
+                                           (evaluate-hands n deck hand-size))))
+                  (> r 0) (conj (future (evaluate-hands r deck hand-size))))]
     (reduce (fn [acc result]
               (merge-results acc @result))
             {}
@@ -277,8 +283,8 @@
       (print-seq (get-in results [:bombs :suited])))))
 
 (defn run-and-display
-  [deck-composition deals threads]
-  (display (run deck-composition deals threads) deals))
+  [deck-composition deals hand-size threads]
+  (display (run deck-composition hand-size deals threads) deals))
 
 (def cli-opts
   [["-d" "--deals DEALS" "Number of hands to deal"
@@ -292,6 +298,10 @@
     :default 1
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 10) "Must be a number between 0 and 10"]]
+   ["-H" "--hand-size SIZE" "Number of cards in a hand"
+    :default 14
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(< 0 %) "Must be a number greather than 0"]]
    ["-t" "--threads THREADS" "Number of threads to run on"
     :default (.availableProcessors (Runtime/getRuntime))
     :parse-fn #(Integer/parseInt %)
@@ -317,6 +327,7 @@
                         :copies (:copies options),
                         :ranks  (vec (range 2 11))}
                        (:deals options)
+                       (:hand-size options)
                        (:threads options)))
 
     (System/exit 0)))

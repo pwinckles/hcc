@@ -18,5 +18,5 @@ clojure -M:run-m --deals 1000000
 clojure -M:run-m --deals 1000000 --suits 5
 
 # 4p deck
-clojure -M:run-m --deals 1000000 --copies 2
+clojure -M:run-m --deals 1000000 --hand-size 18 --copies 2
 ```
