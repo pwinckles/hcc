@@ -151,7 +151,17 @@
   The map is keyed off the set and the value is the count, eg: {1 10, 2 2}."
   [cards]
   (reduce (fn [acc [_rank group]]
-            (update acc (count group) (fnil inc 0)))
+            (if (= (count group) 1)
+              (update acc 1 (fnil inc 0))
+              (loop [c   (count group)
+                     acc acc]
+                (if (= c 1)
+                  acc
+                  (recur (dec c)
+                         (update acc
+                                 c
+                                 (fnil #(+ (combo/count-combinations group c) %)
+                                       0)))))))
           {}
           (group-by-rank cards)))
 
