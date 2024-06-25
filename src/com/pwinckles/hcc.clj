@@ -261,18 +261,22 @@
 
 (defn display
   "Display a combination result map for the specified number of deals to sysout."
-  [results deals]
+  [results deck-composition hand-size deals]
   (let [df        (DecimalFormat.
                    (str "0.0" (.repeat "#" deals)))
         print-seq (fn [result]
                     (doseq [[s c] (into (sorted-map) result)]
                       (println (str " "  (format "%2s" s)
                                     ": " (.format df (double (/ c deals)))))))]
+    (println "Suits:" (:suits deck-composition))
+    (println "Copies:" (:copies deck-composition))
     (println "Deals:" deals)
     (println "Sets")
     (print-seq (:sets results))
     (println "Sequences")
-    (print-seq (:sequences results))
+    (if (> (:copies deck-composition) 1)
+      (println " Not implemented for multiple copies")
+      (print-seq (:sequences results)))
     (println "Rainbow Bombs")
     (if (empty? (get-in results [:bombs :rainbow]))
       (println " None")
@@ -284,7 +288,10 @@
 
 (defn run-and-display
   [deck-composition deals hand-size threads]
-  (display (run deck-composition hand-size deals threads) deals))
+  (display (run deck-composition hand-size deals threads)
+           deck-composition
+           hand-size
+           deals))
 
 (def cli-opts
   [["-d" "--deals DEALS" "Number of hands to deal"
